@@ -22,7 +22,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 app.use(session({
-  secret: 'cat'
+  secret: 'cat',
+  resave: true,
+  saveUninitialized: true
 }));
 
 /************************************************************/
@@ -37,15 +39,54 @@ var authenticate = (req, res, next) => {
   }
 };
 
+app.post('/signup',
+  (req, res) => {
+    new User({
+      username: req.body.username,
+      password: req.body.password
+    }).save().then( () => {
+      req.session.regenerate( () => {
+        req.session.user = req.body.username;
+        res.redirect('/');
+      });
+    });
+  }
+);
+
+app.post('/login',
+  (req, res) => {
+    db.knex('users')
+      .where({'username': req.body.username, 'password': req.body.password})
+      .then( results => {
+        if (results[0].username && results[0].password) {
+          req.session.regenerate( () => {
+            res.headers = {location: '/'};
+            req.session.user = req.body.username;
+            //res.headers.location = '/';
+            res.redirect('/');
+          });
+        }
+      });
+  }
+);
+
+
 app.get('/', authenticate,
 function(req, res) {
   res.render('index');
 });
 
+app.get('/login', 
+  function(req, res) {
+    res.render('login');
+  });
+
 app.get('/create', authenticate,
 function(req, res) {
   res.render('index');
 });
+
+app.get('/signup', (req, res) => res.render('signup') );
 
 app.get('/links', authenticate,
 function(req, res) {
@@ -53,6 +94,7 @@ function(req, res) {
     res.status(200).send(links.models);
   });
 });
+
 
 app.post('/links', 
 function(req, res) {
@@ -85,6 +127,11 @@ function(req, res) {
     }
   });
 });
+
+
+/************************************************************/
+// Write your authentication routes here
+/************************************************************/
 
 
 
