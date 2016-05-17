@@ -29,85 +29,13 @@ app.use(session({
   saveUninitialized: true
 }));
 
-/************************************************************/
-// Write your authentication routes here
-/************************************************************/
-var authenticate = (req, res, next) => {
-  if (req.session.userId !== undefined) {
-    next();
-  } else {
-    req.session.error = 'Login Required';
-    res.redirect('/login');
-  }
-};
+// app.post('/signup'
 
-app.post('/signup',
-  (req, res) => {
+// );
 
-    if (!(req.body.username && req.body.password)) {
-      console.log('Not a valid username/password ');
-      res.redirect('/');
-    }
+// app.post('/login'
 
-    new User({ username: req.body.username })
-      .fetch()
-      .then(function(found) {
-        if (found) {
-          console.log('Username taken');
-          res.status(200);
-          res.redirect('/');
-        } else { 
-          bcrypt.genSalt(10, function(err, salt) {
-            bcrypt.hash(req.body.password, salt, () => console.log('Sign up success!'), function(err, hash) {
-              Users.create({
-                username: req.body.username,
-                hash: hash
-              })
-              .then(function(newUser) {
-                //res.status(200);
-                req.session.regenerate( () => {
-                  req.session.user = newUser.get('username');
-                  req.session.userId = newUser.get('id');
-                  res.redirect('/');
-                });
-              });            
-            });
-          });
-        }
-      });
-  }
-);
-
-app.post('/login',
-  (req, res) => {
-    if (!(req.body.username && req.body.password)) {
-      return;
-    }
-
-    User.where({'username': req.body.username})
-      .fetch().then( userData => {
-        if (userData) {
-          bcrypt.compare(req.body.password, userData.get('hash'), function(err, hashMatch) {
-            if (hashMatch) {
-              req.session.regenerate( () => {
-                res.headers = {location: '/'};
-                req.session.user = userData.get('username');
-                req.session.userId = userData.get('id');
-                res.status(201);
-                res.redirect('/');
-              });
-            } else {
-              res.status(201);
-              res.redirect('/login'); 
-            }
-          });         
-        } else {
-          res.status(201);
-          res.redirect('/login'); 
-        }            
-      });
-  }
-);
+// );
 
 
 app.get('/logout',
@@ -141,7 +69,6 @@ function(req, res) {
     Link.where({userId: req.session.userId}).fetchAll()
       .then(function(links) {
         if (links) {
-          console.log(links);
           res.status(200).send(links);
         } else {
           res.status(200);
