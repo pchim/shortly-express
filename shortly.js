@@ -55,21 +55,35 @@ app.post('/signup',
 
 app.post('/login',
   (req, res) => {
+    if (!(req.body.username && req.body.password)) {
+      return;
+    }
     db.knex('users')
       .where({'username': req.body.username, 'password': req.body.password})
       .then( results => {
-        if (results[0].username && results[0].password) {
+        if (results[0] !== undefined) {
           req.session.regenerate( () => {
             res.headers = {location: '/'};
             req.session.user = req.body.username;
+            res.status(201);
             //res.headers.location = '/';
             res.redirect('/');
           });
+        } else {
+          res.redirect('/login');
         }
       });
   }
 );
 
+
+app.get('/logout',
+  (req, res) => {
+    if (req.session.user) {
+      req.session.destroy();
+    }
+    res.redirect('/');
+  });
 
 app.get('/', authenticate,
 function(req, res) {

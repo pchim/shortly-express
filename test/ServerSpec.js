@@ -59,7 +59,7 @@ describe('', function() {
       });
   });
 
-  xdescribe('Link creation:', function() {
+  describe('Link creation:', function() {
 
     var requestWithSession = request.defaults({jar: true});
 
