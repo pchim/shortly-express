@@ -3,6 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var _ = require('lodash');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -52,8 +53,9 @@ app.post('/signup',
       .then(function(found) {
         if (found) {
           console.log('Username taken');
-          res.status(200).send();
-        } else {
+          res.status(200);
+          res.redirect('/');
+        } else { 
           Users.create({
             username: req.body.username,
             password: req.body.password
@@ -68,15 +70,6 @@ app.post('/signup',
         }
       });
   }
-    // new User({
-    //   username: req.body.username,
-    //   password: req.body.password
-    // }).save().then( () => {
-    //   req.session.regenerate( () => {
-    //     req.session.user = req.body.username;
-    //     res.redirect('/');
-    //   });
-    // });
 );
 
 app.post('/login',
@@ -85,8 +78,10 @@ app.post('/login',
       return;
     }
     
+
     User.where({'username': req.body.username, 'password': req.body.password})
       .fetch().then( results => {
+
         if (!results) {
           console.log('Invalid username/password');
           res.status(201);
@@ -95,6 +90,7 @@ app.post('/login',
           req.session.regenerate( () => {
             res.headers = {location: '/'};
             req.session.user = req.body.username;
+            req.session.userId = req.body.id;
             res.status(201);
             res.redirect('/');
           });
@@ -135,7 +131,15 @@ app.get('/signup', (req, res) => res.render('signup') );
 app.get('/links', authenticate,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
+    if (links.models.length) {
+      var filtered = _.filter(links.models, function(link) {
+        return link.userId === req.session.userId;
+      });
+      console.log('F: ', filtered);
+      res.status(200).send(filtered);
+    } else {
+      res.status(200);
+    }
   });
 });
 
@@ -162,10 +166,12 @@ function(req, res) {
         Links.create({
           url: uri,
           title: title,
-          baseUrl: req.headers.origin
+          baseUrl: req.headers.origin,
+          userId: req.session.userId
         })
         .then(function(newLink) {
           res.status(200).send(newLink);
+
         });
       });
     }

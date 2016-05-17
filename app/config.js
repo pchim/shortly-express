@@ -7,6 +7,13 @@ var knex = require('knex')({
   useNullAsDefault: true
 });
 var db = require('bookshelf')(knex);
+var reset = false;
+
+if (reset) {
+  knex.schema.dropTableIfExists('urls').dropTableIfExists('users').dropTableIfExists('clicks').then( res => {
+    console.log('All tabls dropped!');
+  });
+}
 
 db.knex.schema.hasTable('urls').then(function(exists) {
   if (!exists) {
@@ -17,6 +24,7 @@ db.knex.schema.hasTable('urls').then(function(exists) {
       link.string('code', 100);
       link.string('title', 255);
       link.integer('visits');
+      link.string('userId');
       link.timestamps();
     }).then(function (table) {
       console.log('Created Table', table);
@@ -44,7 +52,7 @@ db.knex.schema.hasTable('users').then( exists => {
     db.knex.schema.createTable('users', user => {
       user.increments('id').primary();
       user.string('username').unique().notNullable();
-      user.string('password');
+      user.string('hash');
     }).then( table => console.log('Created Table', table) );
   }
 });
@@ -52,3 +60,4 @@ db.knex.schema.hasTable('users').then( exists => {
 
 
 module.exports = db;
+
