@@ -201,7 +201,7 @@ function(req, res) {
 /************************************************************/
 
 app.get('/*', function(req, res) {
-  new Link({ code: req.params[0] }).fetch().then(function(link) {
+  new Link({ code: req.params[0], userId: req.session.userId }).fetch().then(function(link) {
     if (!link) {
       res.redirect('/');
     } else {
