@@ -3,6 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var bcrypt = require('bcrypt-nodejs');
 var _ = require('lodash');
 
 var db = require('./app/config');
@@ -56,15 +57,20 @@ app.post('/signup',
           res.status(200);
           res.redirect('/');
         } else { 
-          Users.create({
-            username: req.body.username,
-            password: req.body.password
-          })
-          .then(function(newUser) {
-            //res.status(200);
-            req.session.regenerate( () => {
-              req.session.user = req.body.username;
-              res.redirect('/');
+          bcrypt.genSalt(10, function(err, salt) {
+            bcrypt.hash(req.body.password, salt, () => console.log('Sign up success!'), function(err, hash) {
+              console.log(hash);
+              Users.create({
+                username: req.body.username,
+                hash: hash
+              })
+              .then(function(newUser) {
+                //res.status(200);
+                req.session.regenerate( () => {
+                  req.session.user = req.body.username;
+                  res.redirect('/');
+                });
+              });            
             });
           });
         }
@@ -77,27 +83,29 @@ app.post('/login',
     if (!(req.body.username && req.body.password)) {
       return;
     }
-    
 
-    User.where({'username': req.body.username, 'password': req.body.password})
-      .fetch().then( results => {
-
-        if (!results) {
-          console.log('Invalid username/password');
-          res.status(201);
-          res.redirect('/login');
-        } else if (results.get('id') !== undefined) {
-          req.session.regenerate( () => {
-            res.headers = {location: '/'};
-            req.session.user = req.body.username;
-            req.session.userId = req.body.id;
-            res.status(201);
-            res.redirect('/');
-          });
+    User.where({'username': req.body.username})
+      .fetch().then( userData => {
+        console.log(userData);
+        if(userData) {
+          bcrypt.compare(req.body.password, userData.get('hash'), function(err, hashMatch) {
+            if (hashMatch) {
+              req.session.regenerate( () => {
+                res.headers = {location: '/'};
+                req.session.user = req.body.username;
+                req.session.userId = req.body.id;
+                res.status(201);
+                res.redirect('/');
+              });
+            } else {
+              res.status(201);
+              res.redirect('/login'); 
+            }
+          });         
         } else {
           res.status(201);
-          res.redirect('/login');          
-        } 
+          res.redirect('/login'); 
+        }            
       });
   }
 );
