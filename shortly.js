@@ -4,7 +4,7 @@ var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
 var bcrypt = require('bcrypt-nodejs');
-var _ = require('lodash');
+var _ = require('./public/lib/underscore.js');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -33,7 +33,7 @@ app.use(session({
 // Write your authentication routes here
 /************************************************************/
 var authenticate = (req, res, next) => {
-  if (req.session.user) {
+  if (req.session.userId !== undefined) {
     next();
   } else {
     req.session.error = 'Login Required';
@@ -59,7 +59,6 @@ app.post('/signup',
         } else { 
           bcrypt.genSalt(10, function(err, salt) {
             bcrypt.hash(req.body.password, salt, () => console.log('Sign up success!'), function(err, hash) {
-              console.log(hash);
               Users.create({
                 username: req.body.username,
                 hash: hash
@@ -67,7 +66,8 @@ app.post('/signup',
               .then(function(newUser) {
                 //res.status(200);
                 req.session.regenerate( () => {
-                  req.session.user = req.body.username;
+                  req.session.user = newUser.get('username');
+                  req.session.userId = newUser.get('id');
                   res.redirect('/');
                 });
               });            
@@ -86,14 +86,13 @@ app.post('/login',
 
     User.where({'username': req.body.username})
       .fetch().then( userData => {
-        console.log(userData);
-        if(userData) {
+        if (userData) {
           bcrypt.compare(req.body.password, userData.get('hash'), function(err, hashMatch) {
             if (hashMatch) {
               req.session.regenerate( () => {
                 res.headers = {location: '/'};
-                req.session.user = req.body.username;
-                req.session.userId = req.body.id;
+                req.session.user = userData.get('username');
+                req.session.userId = userData.get('id');
                 res.status(201);
                 res.redirect('/');
               });
@@ -138,17 +137,18 @@ app.get('/signup', (req, res) => res.render('signup') );
 
 app.get('/links', authenticate,
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    if (links.models.length) {
-      var filtered = _.filter(links.models, function(link) {
-        return link.userId === req.session.userId;
+  Links.reset().fetch().then(function() {
+    Link.where({userId: req.session.userId}).fetchAll()
+      .then(function(links) {
+        if (links) {
+          console.log(links);
+          res.status(200).send(links);
+        } else {
+          res.status(200);
+        }
       });
-      console.log('F: ', filtered);
-      res.status(200).send(filtered);
-    } else {
-      res.status(200);
-    }
   });
+
 });
 
 
@@ -161,29 +161,30 @@ function(req, res) {
     return res.sendStatus(404);
   }
 
-  new Link({ url: uri }).fetch().then(function(found) {
-    if (found) {
-      res.status(200).send(found.attributes);
-    } else {
-      util.getUrlTitle(uri, function(err, title) {
-        if (err) {
-          console.log('Error reading URL heading: ', err);
-          return res.sendStatus(404);
-        }
+  new Link({ url: uri, userId: req.session.userId })
+    .fetch().then(function(found) {
+      if (found) {
+        res.status(200).send(found.attributes);
+      } else {
+        util.getUrlTitle(uri, function(err, title) {
+          if (err) {
+            console.log('Error reading URL heading: ', err);
+            return res.sendStatus(404);
+          }
 
-        Links.create({
-          url: uri,
-          title: title,
-          baseUrl: req.headers.origin,
-          userId: req.session.userId
-        })
-        .then(function(newLink) {
-          res.status(200).send(newLink);
+          Links.create({
+            url: uri,
+            title: title,
+            baseUrl: req.headers.origin,
+            userId: req.session.userId
+          })
+          .then(function(newLink) {
+            res.status(200).send(newLink);
 
+          });
         });
-      });
-    }
-  });
+      }
+    });
 });
 
 

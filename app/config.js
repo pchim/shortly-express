@@ -11,7 +11,7 @@ var reset = false;
 
 if (reset) {
   knex.schema.dropTableIfExists('urls').dropTableIfExists('users').dropTableIfExists('clicks').then( res => {
-    console.log('All tabls dropped!');
+    console.log('All tables dropped!');
   });
 }
 
