@@ -41,16 +41,42 @@ var authenticate = (req, res, next) => {
 
 app.post('/signup',
   (req, res) => {
-    new User({
-      username: req.body.username,
-      password: req.body.password
-    }).save().then( () => {
-      req.session.regenerate( () => {
-        req.session.user = req.body.username;
-        res.redirect('/');
+
+    if (!(req.body.username && req.body.password)) {
+      console.log('Not a valid username/password ');
+      res.redirect('/');
+    }
+
+    new User({ username: req.body.username })
+      .fetch()
+      .then(function(found) {
+        if (found) {
+          console.log('Username taken');
+          res.status(200).send();
+        } else {
+          Users.create({
+            username: req.body.username,
+            password: req.body.password
+          })
+          .then(function(newUser) {
+            //res.status(200);
+            req.session.regenerate( () => {
+              req.session.user = req.body.username;
+              res.redirect('/');
+            });
+          });
+        }
       });
-    });
   }
+    // new User({
+    //   username: req.body.username,
+    //   password: req.body.password
+    // }).save().then( () => {
+    //   req.session.regenerate( () => {
+    //     req.session.user = req.body.username;
+    //     res.redirect('/');
+    //   });
+    // });
 );
 
 app.post('/login',
@@ -58,20 +84,24 @@ app.post('/login',
     if (!(req.body.username && req.body.password)) {
       return;
     }
-    db.knex('users')
-      .where({'username': req.body.username, 'password': req.body.password})
-      .then( results => {
-        if (results[0] !== undefined) {
+    
+    User.where({'username': req.body.username, 'password': req.body.password})
+      .fetch().then( results => {
+        if (!results) {
+          console.log('Invalid username/password');
+          res.status(201);
+          res.redirect('/login');
+        } else if (results.get('id') !== undefined) {
           req.session.regenerate( () => {
             res.headers = {location: '/'};
             req.session.user = req.body.username;
             res.status(201);
-            //res.headers.location = '/';
             res.redirect('/');
           });
         } else {
-          res.redirect('/login');
-        }
+          res.status(201);
+          res.redirect('/login');          
+        } 
       });
   }
 );
