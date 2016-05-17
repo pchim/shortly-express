@@ -7,6 +7,7 @@ var bcrypt = require('bcrypt-nodejs');
 var _ = require('./public/lib/underscore.js');
 
 var db = require('./app/config');
+var dm = require('./helpers/dataManager.js');
 var Users = require('./app/collections/users');
 var User = require('./app/models/user');
 var Links = require('./app/collections/links');
@@ -29,96 +30,19 @@ app.use(session({
   saveUninitialized: true
 }));
 
-// app.post('/signup'
-
-// );
-
-// app.post('/login'
-
-// );
 
 
-app.get('/logout',
-  (req, res) => {
-    if (req.session.user) {
-      req.session.destroy();
-    }
-    res.redirect('/');
-  });
+app.post('/signup', dm.signup);
+app.post('/login', dm.login);
+app.post('/links', dm.manageLinks.createLink);
 
-app.get('/', authenticate,
-function(req, res) {
-  res.render('index');
-});
-
-app.get('/login', 
-  function(req, res) {
-    res.render('login');
-  });
-
-app.get('/create', authenticate,
-function(req, res) {
-  res.render('index');
-});
-
+app.get('/logout', dm.logout);
 app.get('/signup', (req, res) => res.render('signup') );
-
-app.get('/links', authenticate,
-function(req, res) {
-  Links.reset().fetch().then(function() {
-    Link.where({userId: req.session.userId}).fetchAll()
-      .then(function(links) {
-        if (links) {
-          res.status(200).send(links);
-        } else {
-          res.status(200);
-        }
-      });
-  });
-
-});
-
-
-app.post('/links', 
-function(req, res) {
-  var uri = req.body.url;
-
-  if (!util.isValidUrl(uri)) {
-    console.log('Not a valid url: ', uri);
-    return res.sendStatus(404);
-  }
-
-  new Link({ url: uri, userId: req.session.userId })
-    .fetch().then(function(found) {
-      if (found) {
-        res.status(200).send(found.attributes);
-      } else {
-        util.getUrlTitle(uri, function(err, title) {
-          if (err) {
-            console.log('Error reading URL heading: ', err);
-            return res.sendStatus(404);
-          }
-
-          Links.create({
-            url: uri,
-            title: title,
-            baseUrl: req.headers.origin,
-            userId: req.session.userId
-          })
-          .then(function(newLink) {
-            res.status(200).send(newLink);
-
-          });
-        });
-      }
-    });
-});
-
-
-/************************************************************/
-// Write your authentication routes here
-/************************************************************/
-
+app.get('/login', (req, res) => res.render('login') );
+app.get('/', dm.authenticate, (req, res) => res.render('index') );
+app.get('/create', dm.authenticate, (req, res) => res.render('index') );
+app.get('/links', dm.authenticate, dm.manageLinks.fetchLinks);
+app.get('/*', dm.manageLinks.handleClicks);
 
 
 /************************************************************/
@@ -127,24 +51,7 @@ function(req, res) {
 // If the short-code doesn't exist, send the user to '/'
 /************************************************************/
 
-app.get('/*', function(req, res) {
-  new Link({ code: req.params[0], userId: req.session.userId }).fetch().then(function(link) {
-    if (!link) {
-      res.redirect('/');
-    } else {
-      var click = new Click({
-        linkId: link.get('id')
-      });
 
-      click.save().then(function() {
-        link.set('visits', link.get('visits') + 1);
-        link.save().then(function() {
-          return res.redirect(link.get('url'));
-        });
-      });
-    }
-  });
-});
 
 console.log('Shortly is listening on 4568');
 app.listen(4568);
